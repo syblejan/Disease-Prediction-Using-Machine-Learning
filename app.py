@@ -1,79 +1,52 @@
-from flask import Flask, request, render_template
+"""Educational Flask inference demo; NOT medical advice."""
+from pathlib import Path
 import joblib
 import pandas as pd
-import numpy as np
+from flask import Flask, render_template, request
 
+APP_DIR = Path(__file__).resolve().parent
 app = Flask(__name__)
+model = joblib.load(APP_DIR / 'educational_disease_pipeline.joblib')
+ALLOWED_SYMPTOMS = {'Body ache','Cough','Fatigue','Fever','Headache','Runny nose','Shortness of breath','Sore throat'}
 
-# Load all required components
-model = joblib.load('disease_prediction_rf_model.pkl')
-scaler = joblib.load('scaler.pkl')
-le = joblib.load('label_encoder.pkl')
-pt = joblib.load('power_transformer.pkl')
-model_columns = joblib.load('model_columns.pkl')
+def number(form,key,minimum,maximum):
+    value=float(form[key])
+    if not minimum <= value <= maximum:
+        raise ValueError(f'{key} must be between {minimum} and {maximum}')
+    return value
 
-@app.route('/')
+@app.get('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html',symptoms=sorted(ALLOWED_SYMPTOMS))
 
-@app.route('/predict', methods=['POST'])
+@app.post('/predict')
 def predict():
     try:
-        # 1. Capture basic inputs
-        age = float(request.form['Age'])
-        gender = 1 if request.form['Gender'] == 'Male' else 0
-        heart_rate = float(request.form['Heart_Rate_bpm'])
-        body_temp = float(request.form['Body_Temperature_C'])
-        oxy_sat = float(request.form['Oxygen_Saturation_%'])
-        
-        # 2. Capture and map Severity
-        severity_map = {'Mild': 1, 'Moderate': 2, 'Severe': 3}
-        severity = severity_map[request.form['Severity']]
-        
-        # 3. Split Blood Pressure (e.g., "120/80" -> 120.0, 80.0)
-        bp_string = request.form['Blood_Pressure_mmHg']
-        bp_sys, bp_dia = map(float, bp_string.split('/'))
-        
-        # 4. Capture Symptoms (from checkboxes)
-        user_symptoms = request.form.getlist('Symptoms')
-        
-        # 5. Build a dictionary for a single patient record
-        patient_data = {
-            'Age': age,
-            'Gender': gender,
-            'Heart_Rate_bpm': heart_rate,
-            'Body_Temperature_C': body_temp,
-            'Oxygen_Saturation_%': oxy_sat,
-            'Severity': severity,
-            'BP_Systolic': bp_sys,
-            'BP_Diastolic': bp_dia
-        }
-        
-        # Add symptom columns dynamically (1 if user checked it, 0 otherwise)
-        # We loop through the saved columns to ensure the exact same names are generated
-        for col in model_columns:
-            if col.startswith('Sym_'):
-                symptom_name = col.replace('Sym_', '')
-                patient_data[col] = 1 if symptom_name in user_symptoms else 0
-                
-        # 6. Convert to DataFrame (ensure exact column order as training)
-        input_df = pd.DataFrame([patient_data], columns=model_columns)
-        
-        # 7. Apply PowerTransformer to numerical columns (same as notebook)
-        num_cols = ['Age', 'Heart_Rate_bpm', 'Body_Temperature_C', 'Oxygen_Saturation_%', 'BP_Systolic', 'BP_Diastolic']
-        input_df[num_cols] = pt.transform(input_df[num_cols])
-        
-        # 8. Apply StandardScaler
-        scaled_data = scaler.transform(input_df)
-        
-        # 9. Predict
-        numeric_pred = model.predict(scaled_data)
-        disease_name = le.inverse_transform(numeric_pred)[0]
-        
-        return render_template('index.html', prediction_text=f'Predicted Diagnosis: {disease_name}')
+        age=number(request.form,'Age',0,120)
+        hr=number(request.form,'Heart_Rate_bpm',30,240)
+        temp=number(request.form,'Body_Temperature_C',30,44)
+        spo2=number(request.form,'Oxygen_Saturation_%',50,100)
+        systolic=number(request.form,'BP_Systolic',50,260)
+        diastolic=number(request.form,'BP_Diastolic',30,180)
+        if systolic <= diastolic:
+            raise ValueError('Systolic blood pressure must exceed diastolic pressure')
+        gender=request.form['Gender']
+        if gender not in {'Male','Female'}:
+            raise ValueError('Invalid gender option')
+        symptoms=request.form.getlist('Symptoms')
+        if len(symptoms)>3 or len(symptoms)!=len(set(symptoms)) or any(s not in ALLOWED_SYMPTOMS for s in symptoms):
+            raise ValueError('Select up to three different valid symptoms')
+        symptoms += ['']*(3-len(symptoms))
+        row={'Age':age,'Gender':gender,'Heart_Rate_bpm':hr,'Body_Temperature_C':temp,
+             'Oxygen_Saturation_%':spo2,'Blood_Pressure_mmHg':f'{systolic}/{diastolic}',
+             'Symptom_1':symptoms[0],'Symptom_2':symptoms[1],'Symptom_3':symptoms[2]}
+        prediction=model.predict(pd.DataFrame([row]))[0]
+        return render_template('index.html',symptoms=sorted(ALLOWED_SYMPTOMS),prediction=prediction)
+    except (ValueError,KeyError,TypeError) as exc:
+        return render_template('index.html',symptoms=sorted(ALLOWED_SYMPTOMS),error=str(exc)),400
+    except Exception:
+        app.logger.exception('Prediction failed')
+        return render_template('index.html',symptoms=sorted(ALLOWED_SYMPTOMS),error='Unable to process request.'),500
 
-    except Exception as e:
-        return render_template('index.html', prediction_text=f'Error processing input: {str(e)}')
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__=='__main__':
+    app.run(host='127.0.0.1',port=5000,debug=False)
