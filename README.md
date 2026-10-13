@@ -439,30 +439,30 @@ The browser tests demonstrate that selected application workflows operate succes
 
 ```text
 Disease-Prediction-Using-Machine-Learning/
-|
-|-- README.md
-|-- app.py
-|-- requirements.txt
-|
-|-- templates/
-|   |-- index.html
-|
-|-- disease_leakage_free_pipeline.py
-|-- train_deployment_model.py
-|-- holdout_evaluation.json
-|
-|-- disease_type_prediction.ipynb
-|
-|-- disease_prediction_rf_model.pkl
-|-- scaler.pkl
-|-- label_encoder.pkl
-|-- power_transformer.pkl
-|-- model_columns.pkl
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── app.py
+├── train_deployment_model.py
+├── disease_leakage_free_pipeline.py
+├── templates/
+│   └── index.html
+├── notebooks/
+│   └── disease_type_prediction.ipynb
+├── models/
+│   └── legacy/
+│       ├── disease_prediction_rf_model.pkl
+│       ├── scaler.pkl
+│       ├── label_encoder.pkl
+│       ├── power_transformer.pkl
+│       └── model_columns.pkl
+└── results/
+    └── holdout_evaluation.json
 ```
 
 ### Original vs Updated Components
 
-The original notebook and `.pkl` files are preserved as legacy experimental artifacts.
+The original notebook is preserved in `notebooks/` and the old `.pkl` model artifacts in `models/legacy/`. These are legacy experiment files, not inputs for the corrected Flask app.
 
 The updated Flask application uses a separately trained, complete fitted pipeline:
 
@@ -509,7 +509,7 @@ Place `disease_diagnosis.csv` in the project root directory.
 python train_deployment_model.py
 ```
 
-This generates the fitted pipeline and evaluation summary.
+This generates the fitted pipeline in the project root and writes the evaluation summary to `results/holdout_evaluation.json`.
 
 **Step 6 — Run Flask**
 

@@ -1,0 +1,26 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Local data and trained pipeline
+disease_diagnosis.csv
+educational_disease_pipeline.joblib
+*.joblib
+
+# Generated reports
+disease_evaluation/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

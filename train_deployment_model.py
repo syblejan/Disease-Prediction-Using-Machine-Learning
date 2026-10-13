@@ -23,7 +23,8 @@ model=Pipeline([('features',FeatureBuilder(use_severity=False)),
 model.fit(X_train,y_train)
 y_pred=model.predict(X_test)
 metrics={'test_accuracy':accuracy_score(y_test,y_pred),'test_macro_f1':f1_score(y_test,y_pred,average='macro'),'classification_report':classification_report(y_test,y_pred,output_dict=True,zero_division=0)}
-(here/'holdout_evaluation.json').write_text(json.dumps(metrics,indent=2))
+(here/'results').mkdir(exist_ok=True)
+(here/'results'/'holdout_evaluation.json').write_text(json.dumps(metrics,indent=2))
 joblib.dump(model,here/'educational_disease_pipeline.joblib')
 print('Accuracy:',metrics['test_accuracy'],'Macro F1:',metrics['test_macro_f1'])
 print('Saved educational_disease_pipeline.joblib')
